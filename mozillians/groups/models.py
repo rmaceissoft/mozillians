@@ -125,6 +125,16 @@ class GroupAlias(GroupAliasBase):
     alias = models.ForeignKey('Group', related_name='aliases')
 
 
+class GroupRole(object):
+    MEMBER = 'm'
+    STEWARD = 's'
+
+    CHOICES = (
+        (MEMBER, _lazy(u'Member')),
+        (STEWARD, _lazy('Steward'))
+    )
+
+
 class GroupMembership(models.Model):
     """
     Through model for UserProfile <-> Group relationship
@@ -140,6 +150,7 @@ class GroupMembership(models.Model):
 
     userprofile = models.ForeignKey('users.UserProfile', db_index=True)
     group = models.ForeignKey('groups.Group', db_index=True)
+    role = models.CharField(choices=GroupRole.CHOICES, max_length=1, default=GroupRole.MEMBER)
     status = models.CharField(choices=MEMBERSHIP_STATUS_CHOICES, max_length=10)
     date_joined = models.DateTimeField(null=True, blank=True)
 
@@ -243,9 +254,10 @@ class Group(GroupBase):
             group.aliases.update(alias=self)
             group.delete()
 
-    def add_member(self, userprofile, status=GroupMembership.MEMBER):
+    def add_member(self, userprofile, status=GroupMembership.MEMBER, role=GroupRole.MEMBER):
         """
-        Add a user to this group. Optionally specify status other than member.
+        Add a user to this group. Optionally specify status other than member
+        and role other than member
 
         If user is already in the group with the given status, this is a no-op.
 
@@ -253,6 +265,7 @@ class Group(GroupBase):
         be updated if the change is a promotion. Otherwise, their status will not change.
         """
         defaults = dict(status=status,
+                        role=role,
                         date_joined=now())
         membership, created = GroupMembership.objects.get_or_create(userprofile=userprofile,
                                                                     group=self,
@@ -307,6 +320,13 @@ class Group(GroupBase):
         """
         return self.groupmembership_set.filter(userprofile=userprofile,
                                                status=GroupMembership.PENDING).exists()
+
+    def has_steward_member(self, userprofile):
+        """
+        Return True if this user is in this group as a steward
+        """
+        return self.groupmembership_set.filter(userprofile=userprofile,
+                                               role=GroupRole.STEWARD).exists()
 
 
 class SkillAlias(GroupAliasBase):

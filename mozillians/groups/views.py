@@ -15,7 +15,7 @@ from tower import ugettext as _
 
 from mozillians.common.decorators import allow_unvouched
 from mozillians.groups.forms import GroupForm, MembershipFilterForm, SortForm, SuperuserGroupForm
-from mozillians.groups.models import Group, Skill, GroupMembership
+from mozillians.groups.models import Group, Skill, GroupMembership, GroupRole
 
 
 def _list_groups(request, template, query):
@@ -329,7 +329,7 @@ def group_add_edit(request, url=None):
         group = form.save()
         # Ensure curator is in the group when it's created
         if profile == group.curator and not group.has_member(profile):
-            group.add_member(profile)
+            group.add_member(profile, role=GroupRole.STEWARD)
         return redirect(reverse('groups:show_group', args=[group.url]))
 
     context = {
