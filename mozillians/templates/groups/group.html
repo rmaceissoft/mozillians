@@ -140,7 +140,7 @@
       </form>
     {% endif %}
 
-    {% if is_curator %}
+    {% if is_curator and group.accepting_new_members == 'by_request' %}
       <div class="filters right">
         <form method="get">
           {{ membership_filter_form }}
