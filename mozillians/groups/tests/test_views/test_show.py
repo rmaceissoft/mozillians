@@ -256,6 +256,36 @@ class ShowTests(TestCase):
         eq_(response.context['show_leave_button'], True)
         ok_(not response.context['is_pending'])
 
+    def test_show_filter_accepting_new_members_no(self):
+        self.group.curator = self.user_1.userprofile
+        self.group.accepting_new_members = 'no'
+        self.group.save()
+
+        with self.login(self.user_1) as client:
+            response = client.get(self.url, follow=True)
+        ok_('membership_filter_form' in response.context)
+        eq_(response.context['membership_filter_form'], None)
+
+    def test_show_filter_accepting_new_members_yes(self):
+        self.group.curator = self.user_1.userprofile
+        self.group.accepting_new_members = 'yes'
+        self.group.save()
+
+        with self.login(self.user_1) as client:
+            response = client.get(self.url, follow=True)
+        ok_('membership_filter_form' in response.context)
+        eq_(response.context['membership_filter_form'], None)
+
+    def test_show_filter_accepting_new_members_by_request(self):
+        self.group.curator = self.user_1.userprofile
+        self.group.accepting_new_members = 'by_request'
+        self.group.save()
+
+        with self.login(self.user_1) as client:
+            response = client.get(self.url, follow=True)
+        ok_('membership_filter_form' in response.context)
+        ok_(response.context['membership_filter_form'])
+
     def test_remove_button_confirms(self):
         """GET to remove_member view displays confirmation"""
         # Make user 1 the group curator so they can remove users
@@ -312,6 +342,7 @@ class ShowTests(TestCase):
         """Filter `m` will filter out members that are only pending"""
         # Make user 1 the group curator so they can see requests
         self.group.curator = self.user_1.userprofile
+        self.group.accepting_new_members = 'by_request'
         self.group.save()
         # Make user 2 a full member
         self.group.add_member(self.user_2.userprofile, GroupMembership.MEMBER)
@@ -333,6 +364,7 @@ class ShowTests(TestCase):
         """Filter `r` will show only member requests (pending)"""
         # Make user 1 the group curator so they can see requests
         self.group.curator = self.user_1.userprofile
+        self.group.accepting_new_members = 'by_request'
         self.group.save()
         # Make user 2 a full member
         self.group.add_member(self.user_2.userprofile, GroupMembership.MEMBER)
@@ -354,6 +386,7 @@ class ShowTests(TestCase):
         """If they specify both filters, they get all the members"""
         # Make user 1 the group curator so they can see requests
         self.group.curator = self.user_1.userprofile
+        self.group.accepting_new_members = 'by_request'
         self.group.save()
         # Make user 2 a full member
         self.group.add_member(self.user_2.userprofile, GroupMembership.MEMBER)
@@ -370,3 +403,22 @@ class ShowTests(TestCase):
         people = response.context['people'].object_list
         ok_(member_membership in people, people)
         ok_(pending_membership in people)
+
+    def test_filter_pending_ignored_when_accepting_new_members_yes(self):
+        """
+        Filter `pending_members` will be ignored if group is not accepting
+        new members by request
+        """
+        # Make user 1 the group curator so they can see requests
+        self.group.curator = self.user_1.userprofile
+        self.group.accepting_new_members = 'yes'
+        self.group.save()
+        # Make user 2 a full member
+        self.group.add_member(self.user_2.userprofile, GroupMembership.MEMBER)
+        member_membership = self.group.groupmembership_set.get(userprofile__user=self.user_2)
+
+        url = urlparams(self.url, filtr='pending_members')
+        with self.login(self.user_1) as client:
+            response = client.get(url, follow=True)
+        people = response.context['people'].object_list
+        ok_(member_membership in people)
